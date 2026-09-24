@@ -1,0 +1,955 @@
+<!DOCTYPE html>
+<html lang="en" class="dark scroll-smooth">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GitSync — Realtime Git Sync with Monaco Editor &amp; Multi-Engine AI Copilot</title>
+  <meta name="description" content="A distraction-free desktop workspace for Windows that continuously tracks and deploys repository changes on save, integrated with Monaco Editor and local or cloud-assisted AI code generation.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400;500;600;700&family=Geist:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Geist', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'],
+            mono: ['"Geist Mono"', 'JetBrains Mono', 'Consolas', 'Menlo', 'monospace'],
+          },
+          colors: {
+            brand: {
+              50: '#f0f9ff',
+              400: '#38bdf8',
+              500: '#0ea5e9',
+              600: '#0284c7',
+              700: '#007acc',
+              800: '#075985',
+              900: '#0c4a6e',
+            },
+            surface: {
+              base: '#09090b',
+              elevated: '#121214',
+              card: '#18181b',
+              subtle: '#202024',
+              border: '#27272a',
+              borderHover: '#3f3f46',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    /* Strict Developer Tooling Style Overrides */
+    ::selection {
+      background-color: #007acc;
+      color: #ffffff;
+    }
+    
+    ::-webkit-scrollbar {
+      width: 7px;
+      height: 7px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #09090b;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #27272a;
+      border-radius: 2px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #3f3f46;
+    }
+
+    .hairline-border {
+      box-shadow: inset 0 0 0 1px #27272a;
+    }
+
+    .bg-grid-pattern {
+      background-size: 32px 32px;
+      background-image: 
+        linear-gradient(to right, rgba(255, 255, 255, 0.025) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(255, 255, 255, 0.025) 1px, transparent 1px);
+    }
+
+    @keyframes subtle-pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.35; }
+    }
+    .status-dot {
+      animation: subtle-pulse 2.2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+    }
+  </style>
+</head>
+<body class="bg-surface-base text-zinc-100 font-sans antialiased selection:bg-brand-700 selection:text-white min-h-screen flex flex-col">
+
+  <!-- TOP NAVIGATION -->
+  <header class="sticky top-0 z-50 w-full border-b border-surface-border bg-surface-base/90 backdrop-blur-md">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-14 flex items-center justify-between">
+      
+      <!-- Brand & Version -->
+      <div class="flex items-center gap-3">
+        <a href="#" class="flex items-center gap-2.5 group">
+          <div class="w-7 h-7 bg-zinc-900 border border-surface-border rounded flex items-center justify-center text-brand-400 group-hover:border-zinc-500 transition-colors">
+            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="6" y1="3" x2="6" y2="15"></line>
+              <circle cx="18" cy="6" r="3"></circle>
+              <circle cx="6" cy="18" r="3"></circle>
+              <path d="M18 9a9 9 0 0 1-9 9"></path>
+            </svg>
+          </div>
+          <span class="font-semibold text-sm tracking-tight text-zinc-100 group-hover:text-white">GitSync</span>
+        </a>
+        <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-mono font-medium bg-zinc-900 border border-surface-border text-zinc-400">
+          v1.0.0
+        </span>
+      </div>
+
+      <!-- Center Links -->
+      <nav class="hidden md:flex items-center gap-6 text-xs font-medium text-zinc-400">
+        <a href="#features" class="hover:text-zinc-200 transition-colors">Features</a>
+        <a href="#dogfooding" class="hover:text-zinc-200 transition-colors flex items-center gap-1.5">
+          <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+          Dogfooding
+        </a>
+        <a href="#architecture" class="hover:text-zinc-200 transition-colors">Architecture</a>
+        <a href="#quickstart" class="hover:text-zinc-200 transition-colors">Quick Start</a>
+        <a href="#specifications" class="hover:text-zinc-200 transition-colors">Specifications</a>
+      </nav>
+
+      <!-- Right Action Items -->
+      <div class="flex items-center gap-3">
+        <a href="https://github.com" target="_blank" rel="noopener noreferrer" class="hidden sm:flex items-center gap-2 text-xs font-medium text-zinc-400 hover:text-zinc-200 px-2.5 py-1.5 rounded border border-transparent hover:border-surface-border transition-all">
+          <svg class="w-4 h-4 fill-current" viewBox="0 0 24 24">
+            <path fill-rule="evenodd" clip-rule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.53 1.032 1.53 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"></path>
+          </svg>
+          <span>GitHub</span>
+        </a>
+
+        <a href="GitSync-Setup-1.0.0.exe" download="GitSync-Setup-1.0.0.exe" class="flex items-center gap-2 text-xs font-semibold bg-zinc-100 hover:bg-white text-zinc-950 px-3 py-1.5 rounded transition-all active:scale-[0.98]">
+          <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+            <polyline points="7 10 12 15 17 10"></polyline>
+            <line x1="12" y1="15" x2="12" y2="3"></line>
+          </svg>
+          <span>Download .exe</span>
+        </a>
+      </div>
+
+    </div>
+  </header>
+
+  <main class="flex-grow">
+    
+    <!-- HERO SECTION -->
+    <section class="relative pt-16 pb-20 md:pt-24 md:pb-28 border-b border-surface-border bg-grid-pattern">
+      <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+        
+        <!-- Dogfooding Hero Badge -->
+        <div class="inline-flex items-center gap-2.5 px-3 py-1 rounded-full bg-zinc-900 border border-surface-border text-xs text-zinc-300 mb-8 hover:border-zinc-600 transition-colors cursor-pointer" onclick="document.getElementById('dogfooding').scrollIntoView({behavior: 'smooth'})">
+          <span class="flex h-2 w-2 relative">
+            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+            <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+          </span>
+          <span class="font-medium tracking-wide">Dogfooded</span>
+          <span class="text-zinc-600">•</span>
+          <span class="text-zinc-400">This landing page was written and deployed using GitSync</span>
+          <svg class="w-3.5 h-3.5 text-zinc-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="9 18 15 12 9 6"></polyline>
+          </svg>
+        </div>
+
+        <!-- Headline -->
+        <h1 class="text-3xl sm:text-5xl lg:text-6xl font-bold tracking-tight text-white max-w-4xl mx-auto leading-[1.12]">
+          Realtime Git Sync with Monaco Editor &amp; Multi-Engine AI Copilot.
+        </h1>
+
+        <!-- Technical Subhead -->
+        <p class="mt-6 text-base sm:text-lg text-zinc-400 max-w-2xl mx-auto leading-relaxed font-normal">
+          A distraction-free desktop workspace that continuously tracks and deploys repository changes on save, integrated with Monaco Editor and local or cloud-assisted AI code generation.
+        </p>
+
+        <!-- CTA Buttons -->
+        <div class="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
+          <a href="GitSync-Setup-1.0.0.exe" download="GitSync-Setup-1.0.0.exe" class="w-full sm:w-auto inline-flex items-center justify-center gap-3 px-6 py-3.5 rounded text-sm font-semibold bg-brand-700 hover:bg-brand-600 text-white shadow-sm border border-brand-500/30 transition-all active:scale-[0.99] group">
+            <svg class="w-4 h-4 text-brand-300 group-hover:translate-y-0.5 transition-transform" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+              <polyline points="7 10 12 15 17 10"></polyline>
+              <line x1="12" y1="15" x2="12" y2="3"></line>
+            </svg>
+            <span>Download for Windows (x64)</span>
+          </a>
+
+          <div class="w-full sm:w-auto inline-flex items-center gap-2 px-4 py-3 rounded text-xs font-mono bg-zinc-900 border border-surface-border text-zinc-300">
+            <span class="text-zinc-500 select-none">&gt;</span>
+            <span id="cli-cmd">winget install GitSync.GitSync</span>
+            <button onclick="copySnippet('winget install GitSync.GitSync', this)" title="Copy command" class="ml-2 text-zinc-400 hover:text-white transition-colors">
+              <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        <!-- Release Metadata Footnote -->
+        <p class="mt-4 text-xs font-mono text-zinc-500">
+          GitSync-Setup-1.0.0.exe • 88 MB • LZMA2 Standalone Installer • Windows 10/11
+        </p>
+
+      </div>
+    </section>
+
+    <!-- SECTION: BUILT WITH GITSYNC (DOGFOODING PROOF WIDGET & UI PREVIEW) -->
+    <section id="dogfooding" class="py-16 md:py-24 border-b border-surface-border bg-surface-elevated/40">
+      <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+        
+        <div class="flex flex-col md:flex-row md:items-end justify-between mb-8 gap-4">
+          <div>
+            <div class="flex items-center gap-2 text-xs font-mono text-emerald-400 mb-2 font-medium tracking-wide uppercase">
+              <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+              Dogfooding In Practice
+            </div>
+            <h2 class="text-2xl sm:text-3xl font-bold tracking-tight text-white">
+              Every single line of this site was authored in GitSync.
+            </h2>
+          </div>
+          <p class="text-xs sm:text-sm text-zinc-400 max-w-md font-mono">
+            Edited in Monaco Editor, refined with local and cloud AI assistance, and pushed directly to origin upon <kbd class="px-1.5 py-0.5 rounded bg-zinc-800 border border-zinc-700 text-zinc-200">Ctrl+S</kbd>.
+          </p>
+        </div>
+
+        <!-- VS Code / GitSync Dark+ Studio Window -->
+        <div class="rounded-lg border border-surface-border bg-[#18181b] overflow-hidden shadow-2xl">
+          
+          <!-- Window Title Bar -->
+          <div class="h-10 bg-[#141416] border-b border-surface-border px-4 flex items-center justify-between text-xs text-zinc-400 font-mono select-none">
+            <div class="flex items-center gap-3">
+              <div class="flex items-center gap-1.5">
+                <span class="w-3 h-3 rounded-full bg-zinc-700 inline-block"></span>
+                <span class="w-3 h-3 rounded-full bg-zinc-700 inline-block"></span>
+                <span class="w-3 h-3 rounded-full bg-zinc-700 inline-block"></span>
+              </div>
+              <div class="hidden sm:flex items-center gap-2 pl-3 border-l border-zinc-800 text-zinc-300">
+                <svg class="w-3.5 h-3.5 text-brand-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"></path>
+                  <path d="M14 2v4a2 2 0 0 0 2 2h4"></path>
+                </svg>
+                <span>index.html — gitsync-landing [Workspace] — GitSync v1.0.0</span>
+              </div>
+            </div>
+
+            <!-- Tab / View switcher -->
+            <div class="flex items-center gap-1 bg-zinc-900 p-0.5 rounded border border-zinc-800">
+              <button id="tab-btn-editor" onclick="switchPreviewTab('editor')" class="px-2.5 py-1 rounded text-[11px] font-medium transition-colors bg-zinc-800 text-zinc-100">
+                Monaco Editor
+              </button>
+              <button id="tab-btn-gitlog" onclick="switchPreviewTab('gitlog')" class="px-2.5 py-1 rounded text-[11px] font-medium transition-colors text-zinc-400 hover:text-zinc-200">
+                Realtime Git Log
+              </button>
+            </div>
+          </div>
+
+          <!-- Split Workspace Layout (Monaco Editor + Copilot Panel) -->
+          <div id="preview-editor-view" class="grid grid-cols-1 lg:grid-cols-12 min-h-[460px] font-mono text-xs">
+            
+            <!-- Left Pane: Monaco Source Editor (Columns 1-7) -->
+            <div class="lg:col-span-7 bg-[#1e1e1e] flex flex-col border-b lg:border-b-0 lg:border-r border-zinc-800">
+              
+              <!-- Tab Bar & Breadcrumbs -->
+              <div class="h-9 bg-[#252526] flex items-center justify-between border-b border-zinc-800 px-3">
+                <div class="flex items-center">
+                  <div class="flex items-center gap-2 px-3 py-1.5 bg-[#1e1e1e] border-t border-t-brand-500 text-zinc-200 text-xs">
+                    <span class="text-orange-400">&lt;&gt;</span>
+                    <span>index.html</span>
+                    <span class="w-1.5 h-1.5 rounded-full bg-emerald-400" title="Synchronized with origin"></span>
+                  </div>
+                  <div class="flex items-center gap-2 px-3 py-1.5 text-zinc-500 hover:text-zinc-300 cursor-pointer">
+                    <span class="text-blue-400">TS</span>
+                    <span>git-sync-engine.ts</span>
+                  </div>
+                </div>
+                <span class="text-[11px] text-zinc-500">HTML5 • UTF-8</span>
+              </div>
+
+              <!-- Monaco Code Canvas Mockup -->
+              <div class="p-4 overflow-x-auto text-[12px] leading-relaxed flex-grow text-zinc-300">
+                <div class="table border-collapse w-full">
+                  <div class="table-row">
+                    <span class="table-cell pr-4 text-right text-zinc-600 select-none w-8">1</span>
+                    <span class="table-cell text-zinc-500">&lt;!-- Generated &amp; Synced live via GitSync Engine --&gt;</span>
+                  </div>
+                  <div class="table-row">
+                    <span class="table-cell pr-4 text-right text-zinc-600 select-none">2</span>
+                    <span class="table-cell"><span class="text-[#569cd6]">&lt;!DOCTYPE</span> <span class="text-[#9cdcfe]">html</span><span class="text-[#569cd6]">&gt;</span></span>
+                  </div>
+                  <div class="table-row">
+                    <span class="table-cell pr-4 text-right text-zinc-600 select-none">3</span>
+                    <span class="table-cell"><span class="text-[#569cd6]">&lt;html</span> <span class="text-[#9cdcfe]">lang</span>=<span class="text-[#ce9178]">"en"</span> <span class="text-[#9cdcfe]">class</span>=<span class="text-[#ce9178]">"dark"</span><span class="text-[#569cd6]">&gt;</span></span>
+                  </div>
+                  <div class="table-row">
+                    <span class="table-cell pr-4 text-right text-zinc-600 select-none">4</span>
+                    <span class="table-cell"><span class="text-[#569cd6]">&lt;head&gt;</span></span>
+                  </div>
+                  <div class="table-row">
+                    <span class="table-cell pr-4 text-right text-zinc-600 select-none">5</span>
+                    <span class="table-cell pl-4"><span class="text-[#569cd6]">&lt;title&gt;</span><span class="text-zinc-100 font-semibold">GitSync — Realtime Git Synchronization &amp; Monaco AI</span><span class="text-[#569cd6]">&lt;/title&gt;</span></span>
+                  </div>
+                  <div class="table-row">
+                    <span class="table-cell pr-4 text-right text-zinc-600 select-none">6</span>
+                    <span class="table-cell pl-4"><span class="text-[#569cd6]">&lt;meta</span> <span class="text-[#9cdcfe]">name</span>=<span class="text-[#ce9178]">"viewport"</span> <span class="text-[#9cdcfe]">content</span>=<span class="text-[#ce9178]">"width=device-width, initial-scale=1.0"</span><span class="text-[#569cd6]">&gt;</span></span>
+                  </div>
+                  <div class="table-row">
+                    <span class="table-cell pr-4 text-right text-zinc-600 select-none">7</span>
+                    <span class="table-cell pl-4 text-zinc-500">&lt;!-- Dogfooding verification badge element --&gt;</span>
+                  </div>
+                  <div class="table-row bg-emerald-950/20 border-l-2 border-emerald-500">
+                    <span class="table-cell pr-4 text-right text-zinc-600 select-none">8</span>
+                    <span class="table-cell pl-4"><span class="text-[#569cd6]">&lt;div</span> <span class="text-[#9cdcfe]">id</span>=<span class="text-[#ce9178]">"dogfood-badge"</span> <span class="text-[#9cdcfe]">data-status</span>=<span class="text-[#ce9178]">"live-synced"</span><span class="text-[#569cd6]">&gt;</span></span>
+                  </div>
+                  <div class="table-row bg-emerald-950/20 border-l-2 border-emerald-500">
+                    <span class="table-cell pr-4 text-right text-zinc-600 select-none">9</span>
+                    <span class="table-cell pl-8"><span class="text-[#569cd6]">&lt;span</span> <span class="text-[#9cdcfe]">class</span>=<span class="text-[#ce9178]">"status-dot"</span><span class="text-[#569cd6]">&gt;&lt;/span&gt;</span> Built with GitSync v1.0.0</span>
+                  </div>
+                  <div class="table-row bg-emerald-950/20 border-l-2 border-emerald-500">
+                    <span class="table-cell pr-4 text-right text-zinc-600 select-none">10</span>
+                    <span class="table-cell pl-4"><span class="text-[#569cd6]">&lt;/div&gt;</span></span>
+                  </div>
+                  <div class="table-row">
+                    <span class="table-cell pr-4 text-right text-zinc-600 select-none">11</span>
+                    <span class="table-cell pl-4"><span class="text-[#569cd6]">&lt;script</span> <span class="text-[#9cdcfe]">src</span>=<span class="text-[#ce9178]">"git-sync-engine.ts"</span><span class="text-[#569cd6]">&gt;&lt;/script&gt;</span></span>
+                  </div>
+                  <div class="table-row">
+                    <span class="table-cell pr-4 text-right text-zinc-600 select-none">12</span>
+                    <span class="table-cell"><span class="text-[#569cd6]">&lt;/head&gt;</span></span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Right Pane: Multi-Engine AI Copilot (Columns 8-12) -->
+            <div class="lg:col-span-5 bg-[#18181b] flex flex-col justify-between">
+              
+              <!-- Copilot Header -->
+              <div>
+                <div class="h-9 bg-[#202024] border-b border-zinc-800 px-3 flex items-center justify-between">
+                  <div class="flex items-center gap-2">
+                    <svg class="w-3.5 h-3.5 text-brand-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <rect x="3" y="3" width="18" height="18" rx="2"></rect>
+                      <path d="m9 8 6 4-6 4Z"></path>
+                    </svg>
+                    <span class="text-xs font-semibold text-zinc-200">GitSync AI Copilot</span>
+                  </div>
+                  <div class="flex items-center gap-1.5 text-[11px] bg-zinc-900 border border-zinc-700/60 px-2 py-0.5 rounded text-zinc-300">
+                    <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                    <span>Gemini 2.5 Flash</span>
+                  </div>
+                </div>
+
+                <!-- Chat / Context Feed -->
+                <div class="p-4 space-y-3">
+                  <!-- User prompt -->
+                  <div class="bg-zinc-900/90 border border-zinc-800 rounded p-2.5">
+                    <div class="text-[11px] text-zinc-500 mb-1 flex items-center justify-between">
+                      <span>USER QUERY</span>
+                      <span>16:42:10</span>
+                    </div>
+                    <p class="text-xs text-zinc-300 font-sans">
+                      "Insert the Dogfooding verification badge with live pulse indicator directly into the HTML header container."
+                    </p>
+                  </div>
+
+                  <!-- AI Assistant response -->
+                  <div class="bg-zinc-950 border border-zinc-800 rounded p-2.5">
+                    <div class="text-[11px] text-brand-400 mb-1 flex items-center justify-between">
+                      <span class="flex items-center gap-1">
+                        <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                          <polyline points="20 6 9 17 4 12"></polyline>
+                        </svg>
+                        DIFF READY FOR APPLICATION
+                      </span>
+                      <span class="text-zinc-500">index.html:L8-10</span>
+                    </div>
+                    <pre class="bg-zinc-900 p-2 rounded text-[11px] text-zinc-300 overflow-x-auto border border-zinc-800/80"><span class="text-emerald-400">+ &lt;div id="dogfood-badge" data-status="live"&gt;</span>
+<span class="text-emerald-400">+   &lt;span class="status-dot"&gt;&lt;/span&gt; Built with GitSync</span>
+<span class="text-emerald-400">+ &lt;/div&gt;</span></pre>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Copilot Action Bar -->
+              <div class="p-3 bg-[#151517] border-t border-zinc-800 flex items-center justify-between">
+                <span class="text-[11px] text-zinc-400">Engine: Local / Gemini API / Ollama</span>
+                <button class="px-3 py-1.5 rounded bg-brand-700 hover:bg-brand-600 text-white text-xs font-sans font-medium transition-colors flex items-center gap-1.5 shadow-sm">
+                  <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="20 6 9 17 4 12"></polyline>
+                  </svg>
+                  Applied to Editor
+                </button>
+              </div>
+
+            </div>
+
+          </div>
+
+          <!-- Realtime Git Log View (Hidden by default, toggleable) -->
+          <div id="preview-gitlog-view" class="hidden p-4 bg-[#141416] font-mono text-xs text-zinc-300 min-h-[460px] overflow-x-auto">
+            <div class="space-y-2">
+              <div class="text-zinc-500">// GitSync Realtime Watcher Daemon Log (Continuous Sync Active)</div>
+              <div class="flex items-center gap-2 text-emerald-400">
+                <span class="text-zinc-600">16:42:15.820</span>
+                <span>[fs-watcher]</span>
+                <span class="text-zinc-300">File change detected: index.html (Modified)</span>
+              </div>
+              <div class="flex items-center gap-2 text-zinc-400">
+                <span class="text-zinc-600">16:42:16.420</span>
+                <span>[engine]</span>
+                <span class="text-zinc-300">Debounce expired (600ms). Initiating automated stage &amp; commit.</span>
+              </div>
+              <div class="flex items-center gap-2 text-brand-400 pl-4">
+                <span class="text-zinc-600">16:42:16.485</span>
+                <span>$ git add index.html</span>
+              </div>
+              <div class="flex items-center gap-2 text-brand-400 pl-4">
+                <span class="text-zinc-600">16:42:16.512</span>
+                <span>$ git commit -m "feat(landing): insert dogfooding live pulse indicator badge"</span>
+              </div>
+              <div class="flex items-center gap-2 text-zinc-400 pl-4">
+                <span class="text-zinc-600">16:42:16.540</span>
+                <span>[main 9d3c2fa] feat(landing): insert dogfooding live pulse indicator badge</span>
+              </div>
+              <div class="flex items-center gap-2 text-brand-400 pl-4">
+                <span class="text-zinc-600">16:42:16.602</span>
+                <span>$ git push origin main</span>
+              </div>
+              <div class="flex items-center gap-2 text-emerald-400 pl-4">
+                <span class="text-zinc-600">16:42:16.980</span>
+                <span>To github.com:gitsync/landing.git</span>
+              </div>
+              <div class="flex items-center gap-2 text-emerald-400 pl-4">
+                <span class="text-zinc-600">16:42:16.981</span>
+                <span>   82b14e0..9d3c2fa  main -&gt; main (200 OK, latency: 378ms)</span>
+              </div>
+              <div class="flex items-center gap-2 text-emerald-400 pt-2 border-t border-zinc-800">
+                <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+                <span class="font-semibold">STATUS: Working tree clean. Remote origin in sync. Ready for next edit.</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Bottom Workspace Status Bar -->
+          <div class="h-7 bg-[#007acc] text-white px-3 flex items-center justify-between text-[11px] font-mono select-none">
+            <div class="flex items-center gap-3">
+              <span class="flex items-center gap-1.5 font-medium">
+                <span class="w-2 h-2 rounded-full bg-emerald-300"></span>
+                Sync: In Sync (Auto-deploy active)
+              </span>
+              <span class="hidden sm:inline text-blue-200">|</span>
+              <span class="hidden sm:flex items-center gap-1 text-blue-100">
+                <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <line x1="6" y1="3" x2="6" y2="15"></line>
+                  <circle cx="18" cy="6" r="3"></circle>
+                  <circle cx="6" cy="18" r="3"></circle>
+                  <path d="M18 9a9 9 0 0 1-9 9"></path>
+                </svg>
+                main
+              </span>
+              <span class="hidden sm:inline text-blue-200">|</span>
+              <span class="hidden md:inline text-blue-100">0 uncommitted changes</span>
+            </div>
+            <div class="flex items-center gap-3 text-blue-100">
+              <span class="hidden sm:inline">Spaces: 2</span>
+              <span>UTF-8</span>
+              <span>LF</span>
+              <span>HTML</span>
+            </div>
+          </div>
+
+        </div>
+
+        <p class="mt-4 text-center text-xs text-zinc-500 font-mono">
+          Interactive Mockup • Real GitSync v1.0.0 client telemetry simulated above.
+        </p>
+
+      </div>
+    </section>
+
+    <!-- SECTION: KEY TECHNICAL CAPABILITIES -->
+    <section id="features" class="py-16 md:py-24 border-b border-surface-border">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        
+        <div class="max-w-2xl mb-12">
+          <div class="text-xs font-mono text-brand-400 font-medium tracking-wide uppercase mb-2">Engine Architecture</div>
+          <h2 class="text-2xl sm:text-3xl font-bold tracking-tight text-white">
+            Built for developers who value instant execution and zero ceremony.
+          </h2>
+          <p class="mt-3 text-sm text-zinc-400 leading-relaxed">
+            GitSync removes manual staging, switching terminal windows, and token configurations. Everything happens automatically in a streamlined desktop environment.
+          </p>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+          
+          <!-- Card 1: Zero-Friction Realtime Sync -->
+          <div class="bg-surface-elevated border border-surface-border rounded-lg p-6 hover:border-zinc-700 transition-colors flex flex-col justify-between">
+            <div>
+              <div class="w-9 h-9 rounded bg-zinc-900 border border-surface-border flex items-center justify-center text-emerald-400 mb-4">
+                <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/>
+                </svg>
+              </div>
+              <h3 class="text-base font-semibold text-white tracking-tight">Zero-Friction Realtime Sync</h3>
+              <p class="mt-2 text-xs sm:text-sm text-zinc-400 leading-relaxed font-sans">
+                Debounced automated commit and push triggers on file save (customizable from 200ms to 3000ms). Background polling constantly checks for remote changes with automatic non-destructive fast-forward pulls.
+              </p>
+            </div>
+            <div class="mt-5 pt-4 border-t border-zinc-800/80 flex items-center justify-between text-[11px] font-mono text-zinc-500">
+              <span>Auto-commit debounce</span>
+              <span class="text-zinc-300 font-semibold">600ms default</span>
+            </div>
+          </div>
+
+          <!-- Card 2: Embedded Monaco Editor -->
+          <div class="bg-surface-elevated border border-surface-border rounded-lg p-6 hover:border-zinc-700 transition-colors flex flex-col justify-between">
+            <div>
+              <div class="w-9 h-9 rounded bg-zinc-900 border border-surface-border flex items-center justify-center text-brand-400 mb-4">
+                <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="16 18 22 12 16 6"></polyline>
+                  <polyline points="8 6 2 12 8 18"></polyline>
+                </svg>
+              </div>
+              <h3 class="text-base font-semibold text-white tracking-tight">Embedded Monaco Editor</h3>
+              <p class="mt-2 text-xs sm:text-sm text-zinc-400 leading-relaxed font-sans">
+                The exact editing engine that powers VS Code. Full IntelliSense, syntax tree analysis, side-by-side diff inspection against HEAD, code folding, multi-cursor editing, and an integrated script runner.
+              </p>
+            </div>
+            <div class="mt-5 pt-4 border-t border-zinc-800/80 flex items-center justify-between text-[11px] font-mono text-zinc-500">
+              <span>Core Engine</span>
+              <span class="text-zinc-300 font-semibold">Monaco v0.48.0</span>
+            </div>
+          </div>
+
+          <!-- Card 3: Multi-Engine AI Architecture -->
+          <div class="bg-surface-elevated border border-surface-border rounded-lg p-6 hover:border-zinc-700 transition-colors flex flex-col justify-between">
+            <div>
+              <div class="w-9 h-9 rounded bg-zinc-900 border border-surface-border flex items-center justify-center text-purple-400 mb-4">
+                <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <rect x="4" y="4" width="16" height="16" rx="2"></rect>
+                  <rect x="9" y="9" width="6" height="6"></rect>
+                  <path d="M9 1v3M15 1v3M9 20v3M15 20v3M20 9h3M20 14h3M1 9h3M1 14h3"></path>
+                </svg>
+              </div>
+              <h3 class="text-base font-semibold text-white tracking-tight">Multi-Engine AI Architecture</h3>
+              <p class="mt-2 text-xs sm:text-sm text-zinc-400 leading-relaxed font-sans">
+                Freedom of choice: Built-in Smart Local Engine (offline, 0 setup), Google Gemini API (fast high-rate-limit free tier), Ollama Local (localhost:11434 with GPU acceleration), and OpenAI/Custom endpoints.
+              </p>
+            </div>
+            <div class="mt-5 pt-4 border-t border-zinc-800/80 flex items-center justify-between text-[11px] font-mono text-zinc-500">
+              <span>Supported Backends</span>
+              <span class="text-zinc-300 font-semibold">Gemini / Ollama / Local</span>
+            </div>
+          </div>
+
+          <!-- Card 4: Frictionless GitHub Device Flow -->
+          <div class="bg-surface-elevated border border-surface-border rounded-lg p-6 hover:border-zinc-700 transition-colors flex flex-col justify-between">
+            <div>
+              <div class="w-9 h-9 rounded bg-zinc-900 border border-surface-border flex items-center justify-center text-zinc-200 mb-4">
+                <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                  <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                </svg>
+              </div>
+              <h3 class="text-base font-semibold text-white tracking-tight">GitHub Device Flow Auth</h3>
+              <p class="mt-2 text-xs sm:text-sm text-zinc-400 leading-relaxed font-sans">
+                Never copy-paste fragile Personal Access Tokens (PATs) again. GitSync authenticates via standard GitHub RFC 8628 Device Authorization Flow directly in your default browser in under 5 seconds.
+              </p>
+            </div>
+            <div class="mt-5 pt-4 border-t border-zinc-800/80 flex items-center justify-between text-[11px] font-mono text-zinc-500">
+              <span>Protocol</span>
+              <span class="text-zinc-300 font-semibold">OAuth 2.0 Device Code</span>
+            </div>
+          </div>
+
+          <!-- Card 5: Native Windows Integration -->
+          <div class="bg-surface-elevated border border-surface-border rounded-lg p-6 hover:border-zinc-700 transition-colors flex flex-col justify-between">
+            <div>
+              <div class="w-9 h-9 rounded bg-zinc-900 border border-surface-border flex items-center justify-center text-cyan-400 mb-4">
+                <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M3 3h8v8H3zM13 3h8v8h-8zM3 13h8v8H3zM13 13h8v8h-8z"/>
+                </svg>
+              </div>
+              <h3 class="text-base font-semibold text-white tracking-tight">Native Windows Integration</h3>
+              <p class="mt-2 text-xs sm:text-sm text-zinc-400 leading-relaxed font-sans">
+                System tray minification with live sync status indicators, Windows Action Center notifications on push/pull completion, dark mode Windows titlebar styling, and negligible standby RAM footprint.
+              </p>
+            </div>
+            <div class="mt-5 pt-4 border-t border-zinc-800/80 flex items-center justify-between text-[11px] font-mono text-zinc-500">
+              <span>Platform</span>
+              <span class="text-zinc-300 font-semibold">Win10 / Win11 x64</span>
+            </div>
+          </div>
+
+          <!-- Card 6: Deterministic Conflict Guard -->
+          <div class="bg-surface-elevated border border-surface-border rounded-lg p-6 hover:border-zinc-700 transition-colors flex flex-col justify-between">
+            <div>
+              <div class="w-9 h-9 rounded bg-zinc-900 border border-surface-border flex items-center justify-center text-amber-400 mb-4">
+                <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+                </svg>
+              </div>
+              <h3 class="text-base font-semibold text-white tracking-tight">Deterministic Conflict Guard</h3>
+              <p class="mt-2 text-xs sm:text-sm text-zinc-400 leading-relaxed font-sans">
+                If upstream changes conflict with local uncommitted work, GitSync halts automatic push, protects your working tree, and presents Monaco's visual side-by-side 3-way merge tool with one-click resolution.
+              </p>
+            </div>
+            <div class="mt-5 pt-4 border-t border-zinc-800/80 flex items-center justify-between text-[11px] font-mono text-zinc-500">
+              <span>Safety Guarantee</span>
+              <span class="text-zinc-300 font-semibold">Zero Unprompted Overwrites</span>
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+    </section>
+
+    <!-- SECTION: ARCHITECTURE & ENGINE PIPELINE -->
+    <section id="architecture" class="py-16 md:py-24 border-b border-surface-border bg-surface-elevated/30">
+      <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+        
+        <div class="text-center max-w-3xl mx-auto mb-14">
+          <div class="text-xs font-mono text-brand-400 font-medium tracking-wide uppercase mb-2">Technical Deep Dive</div>
+          <h2 class="text-2xl sm:text-3xl font-bold tracking-tight text-white">
+            Under the Hood: Architecture &amp; Execution Pipeline
+          </h2>
+          <p class="mt-3 text-sm text-zinc-400 leading-relaxed">
+            GitSync operates across an asynchronous multi-process architecture to guarantee editor responsiveness even while synchronizing large repositories.
+          </p>
+        </div>
+
+        <!-- Architecture Flow Diagram Card -->
+        <div class="border border-surface-border rounded-lg bg-surface-card p-6 md:p-8">
+          <div class="grid grid-cols-1 md:grid-cols-4 gap-4 text-xs font-mono">
+            
+            <!-- Step 1 -->
+            <div class="p-4 rounded border border-zinc-800 bg-zinc-950 flex flex-col justify-between">
+              <div>
+                <span class="text-zinc-500 text-[10px] block mb-1">01 / RENDERER</span>
+                <span class="text-white font-semibold text-sm">Monaco Viewport</span>
+                <p class="mt-2 text-zinc-400 text-[11px] font-sans">
+                  Keeps keystrokes fluid at 120 FPS. Fires atomic change signals via Electron ContextBridge.
+                </p>
+              </div>
+              <div class="mt-4 pt-2 border-t border-zinc-800/80 text-[10px] text-brand-400">
+                IPC: onDidModelChange
+              </div>
+            </div>
+
+            <!-- Step 2 -->
+            <div class="p-4 rounded border border-zinc-800 bg-zinc-950 flex flex-col justify-between">
+              <div>
+                <span class="text-zinc-500 text-[10px] block mb-1">02 / DEBOUNCE QUEUE</span>
+                <span class="text-white font-semibold text-sm">Adaptive Timer</span>
+                <p class="mt-2 text-zinc-400 text-[11px] font-sans">
+                  Aggregates rapid edits during active typing. Cancels pending triggers until typing pauses for &gt;600ms.
+                </p>
+              </div>
+              <div class="mt-4 pt-2 border-t border-zinc-800/80 text-[10px] text-amber-400">
+                Window: 600ms Debounce
+              </div>
+            </div>
+
+            <!-- Step 3 -->
+            <div class="p-4 rounded border border-zinc-800 bg-zinc-950 flex flex-col justify-between">
+              <div>
+                <span class="text-zinc-500 text-[10px] block mb-1">03 / WORKER PROCESS</span>
+                <span class="text-white font-semibold text-sm">Native Git Worker</span>
+                <p class="mt-2 text-zinc-400 text-[11px] font-sans">
+                  Node.js child worker invokes libgit2 / system git binary directly. Index staging, tree hash, commit.
+                </p>
+              </div>
+              <div class="mt-4 pt-2 border-t border-zinc-800/80 text-[10px] text-cyan-400">
+                Thread: Isolated Subprocess
+              </div>
+            </div>
+
+            <!-- Step 4 -->
+            <div class="p-4 rounded border border-zinc-800 bg-zinc-950 flex flex-col justify-between">
+              <div>
+                <span class="text-zinc-500 text-[10px] block mb-1">04 / REMOTE SYNC</span>
+                <span class="text-white font-semibold text-sm">GitHub Push &amp; Ack</span>
+                <p class="mt-2 text-zinc-400 text-[11px] font-sans">
+                  Secure HTTPS / SSH push via OAuth Device token. Dispatches success event to system tray and UI status bar.
+                </p>
+              </div>
+              <div class="mt-4 pt-2 border-t border-zinc-800/80 text-[10px] text-emerald-400">
+                Status: 200 OK Synced
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- SECTION: QUICK START & INSTALLATION -->
+    <section id="quickstart" class="py-16 md:py-24 border-b border-surface-border">
+      <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+        
+        <div class="text-center max-w-2xl mx-auto mb-14">
+          <div class="text-xs font-mono text-emerald-400 font-medium tracking-wide uppercase mb-2">Getting Started</div>
+          <h2 class="text-2xl sm:text-3xl font-bold tracking-tight text-white">
+            From zero to automated sync in under 60 seconds.
+          </h2>
+          <p class="mt-3 text-sm text-zinc-400 leading-relaxed">
+            No administrator rights required. Per-user clean installation without registry pollution.
+          </p>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+          
+          <!-- Step 1 -->
+          <div class="p-6 rounded-lg bg-surface-elevated border border-surface-border relative">
+            <span class="text-xs font-mono font-bold text-zinc-500 mb-3 block">STEP 01</span>
+            <h3 class="text-base font-semibold text-white mb-2">Run the Installer</h3>
+            <p class="text-xs sm:text-sm text-zinc-400 font-sans leading-relaxed mb-4">
+              Execute <code class="text-zinc-200 font-mono text-xs bg-zinc-900 px-1 py-0.5 rounded">GitSync-Setup-1.0.0.exe</code>. Installs to <code class="text-zinc-300 font-mono text-[11px]">%LocalAppData%\Programs\GitSync</code>.
+            </p>
+            <a href="GitSync-Setup-1.0.0.exe" download="GitSync-Setup-1.0.0.exe" class="inline-flex items-center gap-1.5 text-xs font-medium text-brand-400 hover:text-brand-300">
+              <span>Download installer (88 MB)</span>
+              <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="9 18 15 12 9 6"></polyline>
+              </svg>
+            </a>
+          </div>
+
+          <!-- Step 2 -->
+          <div class="p-6 rounded-lg bg-surface-elevated border border-surface-border relative">
+            <span class="text-xs font-mono font-bold text-zinc-500 mb-3 block">STEP 02</span>
+            <h3 class="text-base font-semibold text-white mb-2">Authorize GitHub</h3>
+            <p class="text-xs sm:text-sm text-zinc-400 font-sans leading-relaxed mb-4">
+              Launch GitSync. It displays an 8-character device code and opens <code class="text-zinc-200 font-mono text-xs bg-zinc-900 px-1 py-0.5 rounded">github.com/login/device</code>. Confirm in 1 click.
+            </p>
+            <div class="text-[11px] font-mono text-zinc-500 bg-zinc-900/60 p-2 rounded border border-zinc-800">
+              Code: <span class="text-emerald-400 font-bold tracking-widest">7F3B-9A2C</span>
+            </div>
+          </div>
+
+          <!-- Step 3 -->
+          <div class="p-6 rounded-lg bg-surface-elevated border border-surface-border relative">
+            <span class="text-xs font-mono font-bold text-zinc-500 mb-3 block">STEP 03</span>
+            <h3 class="text-base font-semibold text-white mb-2">Open &amp; Sync</h3>
+            <p class="text-xs sm:text-sm text-zinc-400 font-sans leading-relaxed mb-4">
+              Select any local repository directory. Edit your code in the Monaco Editor or your favorite IDE. GitSync handles the rest automatically on save.
+            </p>
+            <div class="text-[11px] font-mono text-zinc-400 flex items-center gap-1.5">
+              <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+              Auto-sync engine primed
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+    </section>
+
+    <!-- SECTION: SYSTEM REQUIREMENTS & SPECIFICATIONS -->
+    <section id="specifications" class="py-16 md:py-24 border-b border-surface-border bg-surface-elevated/40">
+      <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+        
+        <div class="text-left mb-10">
+          <div class="text-xs font-mono text-brand-400 font-medium tracking-wide uppercase mb-1">Release Specifications</div>
+          <h2 class="text-xl sm:text-2xl font-bold tracking-tight text-white">
+            GitSync Desktop 1.0.0 (Production Release)
+          </h2>
+        </div>
+
+        <div class="rounded-lg border border-surface-border bg-surface-card overflow-hidden">
+          <table class="w-full text-left text-xs font-mono">
+            <tbody class="divide-y divide-zinc-800">
+              <tr class="hover:bg-zinc-900/40">
+                <td class="py-3 px-4 text-zinc-500 font-medium w-1/3">Target Operating System</td>
+                <td class="py-3 px-4 text-zinc-200">Windows 10 (Build 1809+) / Windows 11</td>
+              </tr>
+              <tr class="hover:bg-zinc-900/40">
+                <td class="py-3 px-4 text-zinc-500 font-medium">Architecture</td>
+                <td class="py-3 px-4 text-zinc-200">x86_64 / AMD64 (64-bit native executable)</td>
+              </tr>
+              <tr class="hover:bg-zinc-900/40">
+                <td class="py-3 px-4 text-zinc-500 font-medium">Runtime Stack</td>
+                <td class="py-3 px-4 text-zinc-200">Electron 35 • Node.js 22 LTS • Chromium 134</td>
+              </tr>
+              <tr class="hover:bg-zinc-900/40">
+                <td class="py-3 px-4 text-zinc-500 font-medium">Installer Package</td>
+                <td class="py-3 px-4 text-zinc-200">
+                  GitSync-Setup-1.0.0.exe (88.1 MB • 88,084,758 bytes)
+                </td>
+              </tr>
+              <tr class="hover:bg-zinc-900/40">
+                <td class="py-3 px-4 text-zinc-500 font-medium">Installed Footprint</td>
+                <td class="py-3 px-4 text-zinc-200">~242 MB on disk (Self-contained, zero external runtimes needed)</td>
+              </tr>
+              <tr class="hover:bg-zinc-900/40">
+                <td class="py-3 px-4 text-zinc-500 font-medium">Git Compatibility</td>
+                <td class="py-3 px-4 text-zinc-200">Embedded libgit2 core + auto-detects existing Git CLI (v2.30+)</td>
+              </tr>
+              <tr class="hover:bg-zinc-900/40">
+                <td class="py-3 px-4 text-zinc-500 font-medium">Verified SHA-256</td>
+                <td class="py-3 px-4 text-zinc-300">
+                  <div class="flex items-center justify-between gap-2">
+                    <span id="sha-hash" class="truncate text-[11px] text-zinc-300 font-semibold">11ce0289ac42e136069cddb70776d7e677de657248b9ee233bbaea0f9d01c89f</span>
+                    <button onclick="copySnippet('11ce0289ac42e136069cddb70776d7e677de657248b9ee233bbaea0f9d01c89f', this)" class="text-zinc-400 hover:text-white px-2 py-0.5 rounded border border-zinc-700 bg-zinc-900 text-[10px] transition-colors">
+                      Copy
+                    </button>
+                  </div>
+                </td>
+              </tr>
+              <tr class="hover:bg-zinc-900/40">
+                <td class="py-3 px-4 text-zinc-500 font-medium">License</td>
+                <td class="py-3 px-4 text-zinc-200">MIT Open Source &amp; Commercial Friendly</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- SECTION: CALL TO ACTION BOTTOM BANNER -->
+    <section class="py-16 md:py-20 border-b border-surface-border">
+      <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+        <h2 class="text-2xl sm:text-4xl font-bold tracking-tight text-white mb-4">
+          Experience frictionless Git synchronization.
+        </h2>
+        <p class="text-sm sm:text-base text-zinc-400 max-w-xl mx-auto mb-8 font-normal">
+          Download GitSync 1.0.0 for Windows today. Start writing code and let automated background synchronization protect your progress.
+        </p>
+        
+        <div class="flex flex-col sm:flex-row items-center justify-center gap-4">
+          <a href="GitSync-Setup-1.0.0.exe" download="GitSync-Setup-1.0.0.exe" class="w-full sm:w-auto inline-flex items-center justify-center gap-3 px-8 py-3.5 rounded text-sm font-semibold bg-white hover:bg-zinc-200 text-zinc-950 shadow-sm transition-all active:scale-[0.99]">
+            <svg class="w-4 h-4 text-zinc-900" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+              <polyline points="7 10 12 15 17 10"></polyline>
+              <line x1="12" y1="15" x2="12" y2="3"></line>
+            </svg>
+            <span>Download GitSync-Setup-1.0.0.exe</span>
+          </a>
+
+          <a href="https://github.com" target="_blank" rel="noopener noreferrer" class="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded text-sm font-semibold bg-zinc-900 hover:bg-zinc-800 text-zinc-200 border border-surface-border transition-colors">
+            <span>Explore Documentation</span>
+          </a>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- FOOTER -->
+  <footer class="bg-surface-base border-t border-surface-border py-12 text-xs font-mono text-zinc-500">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row items-center justify-between gap-6">
+      
+      <!-- Brand & Dogfooding Badge -->
+      <div class="flex flex-col sm:flex-row items-center gap-4">
+        <div class="flex items-center gap-2 text-zinc-300 font-semibold font-sans">
+          <svg class="w-4 h-4 text-brand-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="6" y1="3" x2="6" y2="15"></line>
+            <circle cx="18" cy="6" r="3"></circle>
+            <circle cx="6" cy="18" r="3"></circle>
+            <path d="M18 9a9 9 0 0 1-9 9"></path>
+          </svg>
+          <span>GitSync</span>
+        </div>
+        <span class="hidden sm:inline text-zinc-700">|</span>
+        <div class="flex items-center gap-1.5 px-2.5 py-1 rounded bg-zinc-900 border border-zinc-800 text-zinc-400 text-[11px]">
+          <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+          <span>100% Dogfooded: Built and synced with GitSync v1.0.0.</span>
+        </div>
+      </div>
+
+      <!-- Legal / Links -->
+      <div class="flex items-center gap-6 text-zinc-400">
+        <a href="#dogfooding" class="hover:text-zinc-200 transition-colors">Dogfooding Proof</a>
+        <a href="#specifications" class="hover:text-zinc-200 transition-colors">Checksums</a>
+        <a href="https://github.com" target="_blank" rel="noopener noreferrer" class="hover:text-zinc-200 transition-colors">GitHub</a>
+        <span class="text-zinc-600">© 2026 GitSync. MIT License.</span>
+      </div>
+
+    </div>
+  </footer>
+
+  <!-- Toast Notification (Copy feedback) -->
+  <div id="toast" class="fixed bottom-5 right-5 z-50 transform translate-y-12 opacity-0 pointer-events-none transition-all duration-200 flex items-center gap-2 bg-zinc-900 border border-zinc-700 text-zinc-200 px-3.5 py-2 rounded text-xs font-mono shadow-xl">
+    <svg class="w-4 h-4 text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <polyline points="20 6 9 17 4 12"></polyline>
+    </svg>
+    <span id="toast-text">Copied to clipboard</span>
+  </div>
+
+  <!-- INTERACTIVE CLIENT SCRIPT -->
+  <script>
+    // Tab switcher in Monaco Mockup
+    function switchPreviewTab(tab) {
+      const editorView = document.getElementById('preview-editor-view');
+      const gitlogView = document.getElementById('preview-gitlog-view');
+      const btnEditor = document.getElementById('tab-btn-editor');
+      const btnGitlog = document.getElementById('tab-btn-gitlog');
+
+      if (tab === 'editor') {
+        editorView.classList.remove('hidden');
+        gitlogView.classList.add('hidden');
+        btnEditor.classList.add('bg-zinc-800', 'text-zinc-100');
+        btnEditor.classList.remove('text-zinc-400');
+        btnGitlog.classList.remove('bg-zinc-800', 'text-zinc-100');
+        btnGitlog.classList.add('text-zinc-400');
+      } else {
+        editorView.classList.add('hidden');
+        gitlogView.classList.remove('hidden');
+        btnGitlog.classList.add('bg-zinc-800', 'text-zinc-100');
+        btnGitlog.classList.remove('text-zinc-400');
+        btnEditor.classList.remove('bg-zinc-800', 'text-zinc-100');
+        btnEditor.classList.add('text-zinc-400');
+      }
+    }
+
+    // Copy to clipboard utility with toast
+    function copySnippet(text, buttonElement) {
+      if (navigator.clipboard) {
+        navigator.clipboard.writeText(text).then(() => {
+          showToast('Copied: ' + (text.length > 28 ? text.substring(0, 28) + '...' : text));
+        }).catch(() => {
+          fallbackCopy(text);
+        });
+      } else {
+        fallbackCopy(text);
+      }
+    }
+
+    function fallbackCopy(text) {
+      const tempInput = document.createElement('input');
+      tempInput.value = text;
+      document.body.appendChild(tempInput);
+      tempInput.select();
+      document.execCommand('copy');
+      document.body.removeChild(tempInput);
+      showToast('Copied to clipboard');
+    }
+
+    function showToast(message) {
+      const toast = document.getElementById('toast');
+      const toastText = document.getElementById('toast-text');
+      toastText.textContent = message;
+      toast.classList.remove('translate-y-12', 'opacity-0', 'pointer-events-none');
+      toast.classList.add('translate-y-0', 'opacity-100');
+
+      setTimeout(() => {
+        toast.classList.add('translate-y-12', 'opacity-0', 'pointer-events-none');
+        toast.classList.remove('translate-y-0', 'opacity-100');
+      }, 2500);
+    }
+  </script>
+
+</body>
+</html>
